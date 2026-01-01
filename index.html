@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق الوقت الفخم</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&family=Noto+Sans+Arabic:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --card-bg: #0a0a0a;
+            --accent-primary: #ffffff;
+            --text-main: #ffffff;
+            --text-dim: #888888;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app-container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 420px;
+            padding: 40px 24px;
+            border-radius: 40px;
+            box-shadow: 0 20px 50px rgba(255, 255, 255, 0.02);
+            position: relative;
+            border: 1px solid #1a1a1a;
+        }
+
+        .time-display {
+            font-size: 4.5rem;
+            font-weight: 300;
+            letter-spacing: -2px;
+            margin: 20px 0;
+            color: var(--accent-primary);
+            line-height: 1.2; 
+        }
+
+        .nav-bar {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 40px;
+            background: #111;
+            padding: 12px;
+            border-radius: 30px;
+        }
+
+        .nav-item {
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            padding: 10px 18px;
+            border-radius: 20px;
+            line-height: 1.5;
+        }
+
+        .nav-item.active {
+            color: #000;
+            background-color: #fff;
+            font-weight: 600;
+        }
+
+        .btn-main {
+            background: var(--accent-primary);
+            color: #000;
+            width: 85px;
+            height: 85px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+            transition: all 0.2s;
+            margin: 0 auto;
+            cursor: pointer;
+            user-select: none;
+            line-height: 1;
+            padding-bottom: 4px;
+        }
+
+        .btn-main:active {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
+
+        .btn-secondary {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.95rem;
+            cursor: pointer;
+            padding: 12px;
+            line-height: 1.6;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #222;
+            color: white;
+            font-size: 2.2rem;
+            width: 65px;
+            text-align: center;
+            padding: 8px 5px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        input:focus {
+            border-bottom-color: #fff;
+        }
+
+        #notification-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.98);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .hidden { display: none; }
+        
+        .ar-text {
+            line-height: 1.8;
+        }
+
+        /* تحسين زر النغمة */
+        .tone-picker-label {
+            display: inline-block;
+            margin-top: 15px;
+            font-size: 0.75rem;
+            color: #555;
+            cursor: pointer;
+            border: 1px dashed #333;
+            padding: 6px 15px;
+            border-radius: 15px;
+            transition: all 0.3s;
+        }
+        .tone-picker-label:hover {
+            color: #fff;
+            border-color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="notification-overlay">
+        <div class="time-display pulse-animation">انتهى الوقت</div>
+        <button onclick="stopAllAlarms()" class="bg-white text-black px-12 py-4 rounded-full font-bold text-lg mt-8">إيقاف التنبيه</button>
+    </div>
+
+    <div class="app-container">
+        <!-- تبويب الساعة -->
+        <div id="tab-clock" class="tab-content">
+            <p class="text-dim text-center uppercase tracking-widest text-xs mb-2">الوقت الحالي</p>
+            <div id="display-clock" class="time-display text-center">00:00</div>
+            <p id="date-display" class="text-center text-dim mt-2 font-light ar-text">تحميل التاريخ...</p>
+        </div>
+
+        <!-- تبويب المنبه -->
+        <div id="tab-alarm" class="tab-content hidden">
+            <p class="text-dim text-center mb-10">إعداد المنبه</p>
+            <div class="flex flex-col items-center mb-10">
+                <input type="time" id="alarm-input" style="width: 220px; font-size: 2.5rem;">
+                
+                <!-- إدخال النغمة من الهاتف -->
+                <label for="tone-file" class="tone-picker-label" id="tone-label">
+                    🎵 تغيير نغمة التنبيه
+                </label>
+                <input type="file" id="tone-file" accept="audio/*" class="hidden" onchange="loadCustomTone(this)">
+            </div>
+            
+            <div id="alarm-btn" onclick="toggleAlarm()" class="btn-main">ضبط</div>
+            <p id="alarm-status" class="text-center text-xs text-dim mt-6 uppercase tracking-widest ar-text">لا يوجد منبه نشط</p>
+        </div>
+
+        <!-- تبويب العداد التصاعدي -->
+        <div id="tab-stopwatch" class="tab-content hidden">
+            <p class="text-dim text-center mb-4">العداد التصاعدي</p>
+            <div id="display-stopwatch" class="time-display text-center">00:00</div>
+            <div class="flex items-center justify-around mt-10">
+                <div onclick="resetStopwatch()" class="btn-secondary">تصفير</div>
+                <div id="sw-btn" onclick="toggleStopwatch()" class="btn-main">بدء</div>
+                <div class="w-10"></div> 
+            </div>
+        </div>
+
+        <!-- تبويب العداد التنازلي -->
+        <div id="tab-timer" class="tab-content hidden">
+            <p class="text-dim text-center mb-4">العداد التنازلي</p>
+            <div id="display-timer" class="time-display text-center">00:00:00</div>
+            
+            <div class="input-group" id="timer-inputs">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-dim mb-1">ساعة</span>
+                    <input type="number" id="tm-h" placeholder="00" min="0" max="23">
+                </div>
+                <span class="text-2xl mt-4">:</span>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-dim mb-1">دقيقة</span>
+                    <input type="number" id="tm-m" placeholder="00" min="0" max="59">
+                </div>
+                <span class="text-2xl mt-4">:</span>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-dim mb-1">ثانية</span>
+                    <input type="number" id="tm-s" placeholder="00" min="0" max="59">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-around mt-6">
+                <div onclick="resetTimer()" class="btn-secondary">إلغاء</div>
+                <div id="tm-btn" onclick="toggleTimer()" class="btn-main">بدء</div>
+            </div>
+        </div>
+
+        <!-- البار السفلي -->
+        <div class="nav-bar">
+            <div onclick="switchTab('clock')" class="nav-item active" id="nav-clock">الساعة</div>
+            <div onclick="switchTab('alarm')" class="nav-item" id="nav-alarm">المنبه</div>
+            <div onclick="switchTab('stopwatch')" class="nav-item" id="nav-stopwatch">عداد</div>
+            <div onclick="switchTab('timer')" class="nav-item" id="nav-timer">تنازلي</div>
+        </div>
+    </div>
+
+    <!-- صوت التنبيه الافتراضي -->
+    <audio id="audio-alert" loop>
+        <source id="audio-source" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        let currentAlarm = null;
+        let swInterval, swTime = 0, swActive = false;
+        let tmInterval, tmSeconds = 0, tmActive = false;
+        const alertSound = document.getElementById('audio-alert');
+        const audioSource = document.getElementById('audio-source');
+
+        // --- وظيفة تحميل نغمة مخصصة ---
+        function loadCustomTone(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const url = URL.createObjectURL(file);
+                
+                // تحديث مصدر الصوت
+                alertSound.src = url;
+                alertSound.load();
+                
+                // تحديث الواجهة لتأكيد الاختيار
+                document.getElementById('tone-label').innerText = "✅ نغمة مخصصة: " + (file.name.substring(0, 15) + "...");
+                document.getElementById('tone-label').style.color = "#00ff88";
+                document.getElementById('tone-label').style.borderColor = "#00ff88";
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            document.getElementById('nav-' + tab).classList.add('active');
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('display-clock').innerHTML = `${h}:${m}<span class="text-2xl ml-2 opacity-30">${s}</span>`;
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            document.getElementById('date-display').innerText = now.toLocaleDateString('ar-EG', options);
+            if (currentAlarm === `${h}:${m}`) triggerAlert();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function toggleAlarm() {
+            const input = document.getElementById('alarm-input').value;
+            if (input) {
+                currentAlarm = input;
+                document.getElementById('alarm-status').innerText = "تم الضبط: " + input;
+                document.getElementById('alarm-status').style.color = "#fff";
+                document.getElementById('alarm-btn').innerText = "تم";
+            }
+        }
+
+        function toggleStopwatch() {
+            const btn = document.getElementById('sw-btn');
+            if (swActive) {
+                clearInterval(swInterval);
+                btn.innerText = "بدء";
+            } else {
+                swInterval = setInterval(() => {
+                    swTime++;
+                    let m = Math.floor(swTime / 60);
+                    let s = swTime % 60;
+                    document.getElementById('display-stopwatch').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                }, 1000);
+                btn.innerText = "إيقاف";
+            }
+            swActive = !swActive;
+        }
+
+        function resetStopwatch() {
+            clearInterval(swInterval);
+            swTime = 0; swActive = false;
+            document.getElementById('display-stopwatch').innerText = "00:00";
+            document.getElementById('sw-btn').innerText = "بدء";
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('tm-btn');
+            if (tmActive) {
+                clearInterval(tmInterval);
+                btn.innerText = "بدء";
+                tmActive = false;
+            } else {
+                if (tmSeconds <= 0) {
+                    const h = parseInt(document.getElementById('tm-h').value) || 0;
+                    const m = parseInt(document.getElementById('tm-m').value) || 0;
+                    const s = parseInt(document.getElementById('tm-s').value) || 0;
+                    tmSeconds = (h * 3600) + (m * 60) + s;
+                }
+                if (tmSeconds > 0) {
+                    document.getElementById('timer-inputs').classList.add('hidden');
+                    tmInterval = setInterval(() => {
+                        tmSeconds--;
+                        updateTimerUI();
+                        if (tmSeconds <= 0) {
+                            clearInterval(tmInterval);
+                            triggerAlert();
+                            resetTimer();
+                        }
+                    }, 1000);
+                    btn.innerText = "إيقاف";
+                    tmActive = true;
+                }
+            }
+        }
+
+        function updateTimerUI() {
+            const h = Math.floor(tmSeconds / 3600);
+            const m = Math.floor((tmSeconds % 3600) / 60);
+            const s = tmSeconds % 60;
+            document.getElementById('display-timer').innerText = 
+                `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function resetTimer() {
+            clearInterval(tmInterval);
+            tmSeconds = 0; tmActive = false;
+            document.getElementById('display-timer').innerText = "00:00:00";
+            document.getElementById('timer-inputs').classList.remove('hidden');
+            document.getElementById('tm-btn').innerText = "بدء";
+            document.getElementById('tm-h').value = "";
+            document.getElementById('tm-m').value = "";
+            document.getElementById('tm-s').value = "";
+        }
+
+        function triggerAlert() {
+            alertSound.play();
+            document.getElementById('notification-overlay').style.display = 'flex';
+        }
+
+        function stopAllAlarms() {
+            alertSound.pause();
+            alertSound.currentTime = 0;
+            currentAlarm = null;
+            document.getElementById('notification-overlay').style.display = 'none';
+            document.getElementById('alarm-status').innerText = "لا يوجد منبه نشط";
+            document.getElementById('alarm-status').style.color = "#888";
+            document.getElementById('alarm-btn').innerText = "ضبط";
+        }
+    </script>
+</body>
+</html>
