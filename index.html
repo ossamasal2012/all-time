@@ -19,7 +19,63 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flipclock/0.7.8/flipclock.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
+<head>
+    <style>
+       /* الحاوية الرئيسية */
+.alarm-days-section {
+    width: 100%;
+    margin: 20px 0;
+    text-align: right; /* لمحاذاة النص العربي */
+}
+
+/* عنوان القسم */
+.section-title {
+    color: #ffffff;
+    font-size: 14px;
+    margin-bottom: 10px;
+    padding-right: 5px;
+}
+
+/* ترتيب الأيام في صف واحد */
+.days-wrapper {
+    display: flex;
+    flex-direction: row-reverse; /* لتبدأ الأيام من اليمين لليسار */
+    justify-content: space-between;
+    background: #1a1a2e; /* لون خلفية داكن يناسب تطبيقك */
+    padding: 10px;
+    border-radius: 12px;
+}
+
+/* إخفاء المربع التقليدي */
+.day-item input {
+    display: none;
+}
+
+/* تصميم الدائرة أو المربع لكل يوم */
+.day-item span {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: #2e2e48; /* لون الدائرة غير المحددة */
+    color: #ffffff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.3s all;
+    border: 1px solid #3f3f5f;
+}
+
+/* التنسيق عند الضغط (الاختيار) */
+.day-item input:checked + span {
+    background-color: #6366f1; /* اللون البنفسجي مثل زر الإضافة */
+    border-color: #a5b4fc;
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+        /* ... باقي كود الـ CSS الذي أعطيتك إياه ... */
+    </style>
+</head>
     <style>
         :root {
             --primary: #6366f1;
@@ -226,6 +282,18 @@
                     <input type="text" id="alarmLabel" placeholder="مثلاً: عمل...">
                 </div>
             </div>
+ <div class="alarm-days-section">
+    <p class="section-title">تكرار التنبيه في أيام:</p>
+    <div class="days-wrapper">
+        <label class="day-item"><input type="checkbox" value="6"><span>س</span></label>
+        <label class="day-item"><input type="checkbox" value="5"><span>ج</span></label>
+        <label class="day-item"><input type="checkbox" value="4"><span>خ</span></label>
+        <label class="day-item"><input type="checkbox" value="3"><span>ر</span></label>
+        <label class="day-item"><input type="checkbox" value="2"><span>ث</span></label>
+        <label class="day-item"><input type="checkbox" value="1"><span>ن</span></label>
+        <label class="day-item"><input type="checkbox" value="0"><span>ح</span></label>
+    </div>
+</div>
 
             <div class="input-group">
                 <label>طريقة الإغلاق</label>
@@ -247,7 +315,7 @@
                 <input type="file" id="toneFile" accept="audio/*" onchange="handleToneUpload(event, 'alarm')">
             </div>
 
-            <button class="action-btn btn-primary" onclick="addAlarm()"><i class="fa-solid fa-plus"></i> إضافة منبه جديد</button>
+            <button class="action-btn btn-primary" onclick="addAlarm()"><i class="fa-solid fa-plus"></i> إضافة منبه جديد / حفظ التعديلات </button>
             <div class="alarm-list" id="alarmList"></div>
         </div>
     </div>
@@ -357,53 +425,127 @@
             initLiveClock();
         }
 
-        function handleToneUpload(event, type) {
-            const file = event.target.files[0];
-            if (file) {
-                const url = URL.createObjectURL(file);
-                if (type === 'alarm') {
-                    if (alarmToneURL) URL.revokeObjectURL(alarmToneURL);
-                    alarmToneURL = url;
-                } else {
-                    if (cdToneURL) URL.revokeObjectURL(cdToneURL);
-                    cdToneURL = url;
-                }
-                showToast("تم تحديث نغمة التنبيه بنجاح");
+ // --- المتغيرات العامة (يجب أن تكون خارج الدوال) ---
+let editMode = false;
+let editId = null;
+
+// دالة رفع النغمة (مستقلة)
+function handleToneUpload(event, type) {
+    const file = event.target.files[0];
+    if (file) {
+        const url = URL.createObjectURL(file);
+        if (type === 'alarm') {
+            if (alarmToneURL) URL.revokeObjectURL(alarmToneURL);
+            alarmToneURL = url;
+        } else {
+            if (cdToneURL) URL.revokeObjectURL(cdToneURL);
+            cdToneURL = url;
+        }
+        showToast("تم تحديث نغمة التنبيه بنجاح");
+    }
+}
+
+// دالة التعديل (مستقلة)
+function editAlarm(id) {
+    const alarm = alarms.find(a => a.id === id);
+    if (!alarm) return;
+
+    $('#alarmTime').val(alarm.time);
+    $('#alarmLabel').val(alarm.label);
+
+    $('.day-item input').prop('checked', false);
+    if (alarm.days) {
+        alarm.days.forEach(day => {
+            $(`.day-item input[value="${day}"]`).prop('checked', true);
+        });
+    }
+
+    editMode = true;
+    editId = id;
+    $('#addAlarmBtn').html('<i class="fa-solid fa-check"></i> حفظ التعديلات').css('background', '#10b981');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// دالة الإضافة أو الحفظ (معدلة لتشمل التعديل)
+function addAlarm() {
+    const time = $('#alarmTime').val();
+    const label = $('#alarmLabel').val() || "منبه جديد";
+    const selectedDays = Array.from(document.querySelectorAll('.day-item input:checked')).map(cb => parseInt(cb.value));
+
+    if (!time) return showToast("يرجى تحديد وقت المنبه أولاً");
+
+    if (editMode) {
+        // --- وضع التعديل ---
+        const index = alarms.findIndex(a => a.id === editId);
+        if (index !== -1) {
+            alarms[index].time = time;
+            alarms[index].label = label;
+            alarms[index].days = selectedDays;
+            showToast("تم تحديث المنبه");
+        }
+        // إعادة الزر لحالته الطبيعية
+        editMode = false;
+        editId = null;
+        $('#addAlarmBtn').html('<i class="fa-solid fa-plus"></i> إضافة منبه جديد').css('background', '');
+    } else {
+        // --- وضع الإضافة الجديد (كودك الأصلي) ---
+        alarms.push({ id: Date.now(), time, label, enabled: true, days: selectedDays });
+        showToast("تمت إضافة المنبه");
+    }
+
+    // تنظيف الحقول بعد الانتهاء
+    $('#alarmLabel').val('');
+    $('.day-item input').prop('checked', false);
+    
+    saveAlarms();
+    renderAlarms();
+}
+
+function renderAlarms() {
+    const list = $('#alarmList').empty();
+    
+    // مصفوفة أسماء الأيام لتحويل الأرقام إلى نصوص
+    const dayNames = ["أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
+
+    alarms.forEach(a => {
+        // تحويل مصفوفة الأرقام إلى نص مفهوم
+        let daysTxt = "";
+        if (a.days && a.days.length > 0) {
+            if (a.days.length === 7) {
+                daysTxt = "يومياً";
+            } else {
+                daysTxt = a.days.map(d => dayNames[d]).join('، ');
             }
+        } else {
+            daysTxt = "مرة واحدة"; 
         }
 
-        function addAlarm() {
-            const time = $('#alarmTime').val();
-            const label = $('#alarmLabel').val() || "منبه جديد";
-            if (!time) return showToast("يرجى تحديد وقت المنبه أولاً");
-            
-            let autoCloseSecs = 0;
-            if ($('#alarmCloseMode').val() === 'auto') {
-                autoCloseSecs = (parseInt($('#alarmCloseMins').val()) * 60) + (parseInt($('#alarmCloseSecs').val()) || 0);
-            }
+        const closeTxt = a.autoCloseSecs > 0 ? `<div style="font-size:0.75rem; color:var(--text-muted)">إغلاق تلقائي بعد ${a.autoCloseSecs}ث</div>` : "";
+        
+        // نص الأيام المكررة بتنسيق صغير
+        const daysHtml = `<div style="font-size:0.75rem; color:#818cf8; margin-top:2px;">تكرار: ${daysTxt}</div>`;
 
-            alarms.push({ id: Date.now(), time, label, enabled: true, autoCloseSecs });
-            saveAlarms();
-            renderAlarms();
-            showToast("تمت إضافة المنبه للقائمة");
-        }
-
-        function renderAlarms() {
-            const list = $('#alarmList').empty();
-            alarms.forEach(a => {
-                const closeTxt = a.autoCloseSecs > 0 ? `<div style="font-size:0.75rem; color:var(--text-muted)">إغلاق تلقائي بعد ${a.autoCloseSecs}ث</div>` : "";
-                list.append(`
-                    <div class="alarm-item">
-                        <div class="alarm-info">
-                            <b>${a.time}</b>
-                            <div style="font-size:0.9rem">${a.label}</div>
-                            ${closeTxt}
-                        </div>
-                        <button class="action-btn btn-danger" style="width:auto; padding:8px 15px" onclick="deleteAlarm(${a.id})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                `);
-            });
-        }
+        list.append(`
+            <div class="alarm-item">
+                <div class="alarm-info">
+                    <b>${a.time}</b>
+                    <div style="font-size:0.9rem">${a.label}</div>
+                    ${daysHtml}
+                    ${closeTxt}
+                </div>
+                <div class="alarm-actions" style="display: flex; gap: 5px;">
+                    <button class="action-btn" style="background:#10b981; width:auto; padding:8px 12px" onclick="editAlarm(${a.id})">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    
+                    <button class="action-btn btn-danger" style="width:auto; padding:8px 12px" onclick="deleteAlarm(${a.id})">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+    });
+}
 
         function deleteAlarm(id) {
             alarms = alarms.filter(a => a.id !== id);
@@ -413,14 +555,27 @@
 
         function saveAlarms() { localStorage.setItem('myAlarms', JSON.stringify(alarms)); }
 
-        function checkAlarms() {
-            const now = new Date();
-            const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-            if (now.getSeconds() === 0) {
-                const triggered = alarms.find(a => a.enabled && a.time === timeStr);
-                if (triggered) startRinging(triggered, 'alarm');
-            }
-        }
+function checkAlarms() {
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+    const currentDay = now.getDay(); // يجلب اليوم الحالي (0-6)
+
+    if (now.getSeconds() === 0) {
+        // قمنا بإضافة شرط الأيام داخل دالة البحث find
+        const triggered = alarms.find(a => {
+            // نتحقق أولاً من تفعيل المنبه وتطابق الوقت
+            const isTimeMatch = a.enabled && a.time === timeStr;
+            
+            // نتحقق ثانياً: هل اليوم الحالي موجود ضمن مصفوفة الأيام الخاصة بهذا المنبه؟
+            // (سأفترض أنك ستخزن الأيام داخل كل منبه في مصفوفة اسمها days)
+            const isDayMatch = !a.days || a.days.length === 0 || a.days.includes(currentDay);
+
+            return isTimeMatch && isDayMatch;
+        });
+
+        if (triggered) startRinging(triggered, 'alarm');
+    }
+}
 
         function startRinging(info, type) {
             if (ringingAlarm) return;
@@ -587,6 +742,29 @@ function updateDate() {
                 'animation': 'fadeIn 0.3s ease'
             }).fadeIn().delay(3000).fadeOut(); 
         }
+        // ضع الكود الثالث هنا
+        document.getElementById('addAlarmBtn').addEventListener('click', function() {
+            const selectedDays = Array.from(document.querySelectorAll('.day-circle input:checked'))
+                                      .map(cb => parseInt(cb.value));
+            
+            console.log("الأيام المختارة:", selectedDays);
+            // بقية منطق حفظ المنبه...
+        });
+        function isAlarmDaySelected() {
+    const now = new Date();
+    const currentDay = now.getDay(); // الأحد 0، الاثنين 1 ... السبت 6
+
+    // نجلب كل المربعات المختارة (Checked)
+    const selectedDays = Array.from(document.querySelectorAll('.day-item input:checked'))
+                              .map(cb => parseInt(cb.value));
+
+    // إذا لم يختار المستخدم أي يوم، نعتبره منبه يعمل يومياً (أو يمكنك تغيير ذلك)
+    if (selectedDays.length === 0) return true; 
+
+    // نتحقق إذا كان رقم اليوم الحالي موجود ضمن القائمة المختارة
+    return selectedDays.includes(currentDay);
+}
+
     </script>
 </body>
 </html>
